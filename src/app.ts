@@ -1,5 +1,6 @@
-import knex, { migrate, seed } from "#postgres/knex.js";
+import knex, { migrate } from "#postgres/knex.js";
 import { updateTariffs } from "#services/tariffs.js";
+import { syncSpreadsheets } from "#services/google-sheets.js";
 import cron from "node-cron";
 import log4js from "log4js";
 
@@ -9,9 +10,11 @@ log4js.configure({
     categories: { default: { appenders: ["console"], level: "info" } },
 });
 
-// Run migrations and seeds
+// Run migrations
 await migrate.latest();
-await seed.run();
+
+// Sync spreadsheet IDs from env to DB
+await syncSpreadsheets();
 
 // Initial fetch on startup
 try {
