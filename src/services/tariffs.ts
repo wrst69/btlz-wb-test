@@ -1,4 +1,5 @@
 import knex from "#postgres/knex.js";
+import { fetchBoxTariffs } from "#services/wb-api.js";
 import type { BoxTariffRow, WbTariffsBoxResponse } from "#types/tariffs.js";
 import log4js from "log4js";
 
@@ -53,4 +54,12 @@ export async function saveTariffs(data: WbTariffsBoxResponse): Promise<void> {
         });
 
     logger.info(`Upserted ${rows.length} tariff rows for ${today}`);
+}
+
+/** Fetch tariffs from WB API and save to DB */
+export async function updateTariffs(): Promise<void> {
+    logger.info("Fetching tariffs from WB API...");
+    const data = await fetchBoxTariffs();
+    await saveTariffs(data);
+    logger.info("Tariffs updated successfully");
 }

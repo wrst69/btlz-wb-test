@@ -1,6 +1,6 @@
 import knex, { migrate, seed } from "#postgres/knex.js";
-import { fetchBoxTariffs } from "#services/wb-api.js";
-import { saveTariffs } from "#services/tariffs.js";
+import { updateTariffs } from "#services/tariffs.js";
+import cron from "node-cron";
 import log4js from "log4js";
 
 const logger = log4js.getLogger("app");
@@ -9,16 +9,37 @@ log4js.configure({
     categories: { default: { appenders: ["console"], level: "info" } },
 });
 
+// Run migrations and seeds
 await migrate.latest();
 await seed.run();
 
-logger.info("Fetching tariffs from WB API...");
+// Initial fetch on startup
 try {
-    const data = await fetchBoxTariffs();
-    await saveTariffs(data);
-    logger.info("Tariffs saved successfully");
+    await updateTariffs();
 } catch (err) {
     logger.error("Failed to fetch/save tariffs:", err);
 }
 
-await knex.destroy();
+// Schedule hourly updates (every hour at :00)
+const task = cron.schedule("0 * * * *", async () => {
+    try {
+        await updateTariffs();
+    } catch (err) {
+        logger.error("Scheduled tariff update failed:", err);
+    }
+});
+
+logger.info("Cron scheduled: tariff update every hour");
+
+// Graceful shutdown
+function shutdown() {
+    logger.info("Shutting down...");
+    task.stop();
+    knex.destroy().then(() => {
+        logger.info("Database connection closed");
+        process.exit(0);
+    });
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
